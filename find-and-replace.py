@@ -3,15 +3,23 @@ import json
 from functools import reduce
 import operator
 from pathlib import Path
+import uuid
+import csv
 
+# Global Settings:
 PATH = "mock"
+OUTPUT = "output"
 CONTENT_FILE = "content/content.json"
-KEY = "autoplay"
-FILTER = ''
+
+# Search Settings:
+KEY = "path"
+FILTER = 'https://youtu.be/'
+
+# Replace Settings:
 # Set to "single" for setting a single value
 # Set to "batch" to dynamically set values
 TYPE = "single"
-SINGLE_VALUE = True
+SINGLE_VALUE = ''
 BATCH_LOOKUP = ''
 
 
@@ -29,7 +37,11 @@ BATCH_LOOKUP = ''
 def main():
     for file in Path(PATH).glob('*.h5p'):
         print(file)
-        with zipfile.ZipFile(file) as z:
+        
+        tmp_path = Path(f'{PATH}/{OUTPUT}/{uuid.uuid4().hex}.h5p')
+        
+        # Read Original ZIP
+        with zipfile.ZipFile(file, 'r') as z:
             content = json.loads(z.read(CONTENT_FILE).decode(encoding="utf-8"))
             lookup = dict_key_lookup(content, KEY, FILTER)
             new_content = content
@@ -41,8 +53,19 @@ def main():
                 pass
             
             print_changes(new_content, lookup)
+           
+            # Write to Temp ZIP
+            with zipfile.ZipFile(tmp_path, 'w') as o:
+                for zinfo in z.infolist():
+                    if zinfo.filename == CONTENT_FILE:
+                        o.writestr(CONTENT_FILE, json.dumps(new_content))
+                    else:
+                        zfile = z.open(zinfo)
+                        zread = zfile.read()
+                        o.writestr(zinfo.filename, zread)
 
-            # z.writestr(CONTENT_FILE, new_content)
+        tmp_path.rename(f'{PATH}/{OUTPUT}/{file.name}')
+        
 
 
 # https://stackoverflow.com/questions/51413998/how-to-find-all-occurrence-of-a-key-in-nested-dict-but-also-keep-track-of-the-o
