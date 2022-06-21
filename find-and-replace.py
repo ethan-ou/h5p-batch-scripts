@@ -8,20 +8,24 @@ import csv
 
 # Global Settings:
 PATH = "mock"
-OUTPUT = "output"
 CONTENT_FILE = "content/content.json"
 
 # Search Settings:
+# Searches the content.json file for values with a specific key
 KEY = "path"
 FILTER = 'https://youtu.be/'
 
 # Replace Settings:
-# Set to "single" for setting a single value
-# Set to "batch" to dynamically set values
-TYPE = "single"
+# Set to "single" for setting a single value -> use SINGLE_VALUE
+# Set to "batch" to dynamically set values -> use CSV_LOOKUP_FILE
+TYPE = "batch"
 SINGLE_VALUE = ''
-BATCH_LOOKUP = ''
+CSV_LOOKUP_FILE = 'links.csv'
 
+# Output Settings:
+OUTPUT = "output"
+PREFIX = "[zh-tr] "
+SUFFIX = ""
 
 # Autoplay Videos Settings
 # PATH = "mock"
@@ -44,14 +48,26 @@ def main():
         with zipfile.ZipFile(file, 'r') as z:
             content = json.loads(z.read(CONTENT_FILE).decode(encoding="utf-8"))
             lookup = dict_key_lookup(content, KEY, FILTER)
+
             new_content = content
             if TYPE == "single":
                 for key, value in lookup:
                     new_content = setInDict(new_content, key, SINGLE_VALUE)
 
             if TYPE == "batch":
-                pass
-            
+                links = []
+
+                with open(CSV_LOOKUP_FILE) as csv_file:
+                    csv_reader = csv.reader(csv_file, delimiter=',')
+                    for row in csv_reader:
+                        links.append(row)
+                
+                for key, value in lookup:
+                    for link_old, link_new in links:
+                        if link_old in value:
+                            replaced_link = value.replace(link_old, link_new)
+                            new_content = setInDict(new_content, key, replaced_link)
+                        
             print_changes(new_content, lookup)
            
             # Write to Temp ZIP
@@ -64,7 +80,7 @@ def main():
                         zread = zfile.read()
                         o.writestr(zinfo.filename, zread)
 
-        tmp_path.rename(f'{PATH}/{OUTPUT}/{file.name}')
+        tmp_path.rename(f'{PATH}/{OUTPUT}/{PREFIX}{file.stem}{SUFFIX}{file.suffix}')
         
 
 
